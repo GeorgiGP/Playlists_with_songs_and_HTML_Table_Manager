@@ -1,5 +1,4 @@
 #include <iostream>
-#include <iomanip>
 #include <fstream>
 #include <sstream>
 using std::cout;
@@ -85,7 +84,7 @@ public:
 		this->cellText[0] = '\0';
 		isHeader = false;
 	}
-	void changeCell(const char* cellText,bool isHeader)
+	void changeCell(const char* cellText, bool isHeader)
 	{
 		strcpy(this->cellText, cellText);
 		this->isHeader = isHeader;
@@ -132,9 +131,9 @@ class Row
 		resultStr[index] = '\0';
 		strcpy(str, resultStr);
 		delete[] resultStr;
-		
+
 	}
-	
+
 public:
 	void setColumnCount(int colCount)
 	{
@@ -192,7 +191,7 @@ class Table
 	Row rowsTable[MAX_ROWS_IN_TABLE];
 	unsigned short rowsCount = 0;
 	bool isValidTable = false;
-	
+
 	const char* readNextTag(std::ifstream& file) const
 	{
 		while (true)
@@ -215,7 +214,7 @@ class Table
 			file.getline(buff, MAX_TAG_LEN, '>');
 			return buff;
 		}
-		
+
 	}
 	void loadTable(std::ifstream& file)
 	{
@@ -243,7 +242,7 @@ class Table
 			{
 				rowsTable[rowsCount - 1].columnsCountPlus1();
 			}
-			
+
 		}
 	}
 
@@ -259,7 +258,7 @@ class Table
 		}
 		return maxColsCount;
 	}
-	void fillCellLenArr( unsigned short* cellLenArr, unsigned short size) const
+	void fillCellLenArr(unsigned short* cellLenArr, unsigned short size) const
 	{
 		for (size_t i = 0; i < size; i++)
 		{
@@ -292,6 +291,20 @@ class Table
 			rowsTable[i].clear();
 		}
 		rowsCount = 0;
+	}
+	void cleanUpTable() // removes last empty rows
+	{
+		for (size_t i = rowsCount - 1; i >= 0; i--)
+		{
+			if (rowsTable[i].getColumnsCount() == 0)
+			{
+				--rowsCount;
+			}
+			else
+			{
+				break;
+			}
+		}
 	}
 public:
 	Table() = default;
@@ -343,14 +356,14 @@ public:
 				{
 					ofs << TAB << '<' << CELL_TAG << '>' << rowsTable[i].getCell(j).getText() << '<' << CELL_CLOSE_TAG << '>' << endl;
 				}
-				
+
 			}
 			ofs << HALF_TAB << '<' << ROW_CLOSE_TAG << '>' << endl;
 		}
 		ofs << "</table>";
 		ofs.close();
 	}
-	void edit(int rowNumber, int colNumber, char* newText)
+	void edit(int rowNumber, int colNumber,char* newText)
 	{
 		if (!newText)
 		{
@@ -385,11 +398,11 @@ public:
 			for (size_t j = 0; j < columnsTable; j++)
 			{
 				printSymbolHeader(rowsTable[i].getCell(j).IsHeader());
-				
+
 				setWfromLeftToRight(rowsTable[i].getCell(j).getText(), maxCellLenInEveryColumn[j], ' ');
 
 				printSymbolHeader(rowsTable[i].getCell(j).IsHeader());
-				
+
 				cout << '|';
 			}
 			cout << endl;
@@ -397,17 +410,24 @@ public:
 		delete[] maxCellLenInEveryColumn;
 	}
 
-	void addRow(int rowIndex, const char* rowFill) // Every White space separates different CellFillers
+	void addRow(int rowIndex, const char* rowFill) // Every ; separates different CellFillers
 	{
 		if (!rowFill || !isBetween(rowIndex, 1, MAX_ROWS_IN_TABLE - 1))
 		{
 			return;
 		}
-		for (size_t i = MAX_ROWS_IN_TABLE - 1; i >= rowIndex; i--)
+		if (isBetween(rowIndex, 1, rowsCount))
 		{
-			std::swap(rowsTable[i], rowsTable[i - 1]);
+			for (size_t i = rowsCount; i >= rowIndex; i--)
+			{
+				std::swap(rowsTable[i], rowsTable[i - 1]);
+			}
+			rowsCount++;
 		}
-		rowsCount++;
+		else
+		{
+			rowsCount = rowIndex;
+		}
 		rowsTable[rowIndex - 1].clear();
 		std::stringstream ss(rowFill);
 		for (size_t i = 0; i < MAX_CELLS_PER_ROW; i++)
@@ -417,7 +437,7 @@ public:
 				break;
 			}
 			char buff[MAX_CELL_LEN];
-			ss.getline(buff, MAX_CELL_LEN, ' ');
+			ss.getline(buff, MAX_CELL_LEN, ';');
 			rowsTable[rowIndex - 1].setCell(i, buff, false);
 			rowsTable[rowIndex - 1].columnsCountPlus1();
 		}
@@ -425,16 +445,17 @@ public:
 
 	void removeRow(int rowIndex)
 	{
-		if (!isBetween(rowIndex, 1, MAX_ROWS_IN_TABLE))
+		if (!isBetween(rowIndex, 1, rowsCount))
 		{
 			return;
 		}
-		for (size_t i = rowIndex - 1; i < MAX_ROWS_IN_TABLE - 1; i++)
+		for (size_t i = rowIndex - 1; i < rowsCount - 1; i++)
 		{
 			std::swap(rowsTable[i], rowsTable[i + 1]);
 		}
-		rowsTable[MAX_ROWS_IN_TABLE - 1].clear();
+		rowsTable[rowsCount - 1].clear();
 		rowsCount--;
+		cleanUpTable();
 	}
 };
 int main()
@@ -442,7 +463,17 @@ int main()
 	cout << "Load valid table" << endl << '>';
 	char HTMLtableName[GlobalConsts::MAX_FILENAME_LEN];
 	cin >> HTMLtableName;
-	Table t(HTMLtableName); 
+	Table t(HTMLtableName);
+
+	t.print();
+	t.load(HTMLtableName);
+	char editText[] = "edit";
+	t.edit(8, 4, editText);
+	t.addRow(2, "adsad;asdad;");
+	t.addRow(7, "aad;adad");
+	t.addRow(10, ";;;;;last");
+	t.addRow(30, "aad;a;dad");
+	t.removeRow(30);
 	t.print();
 	t.save("newFileTest.txt");
 }
